@@ -3,7 +3,7 @@ defmodule Paypal.Authentication do
   This module is responsible to authenticate the lib with paypal.
   """
 
-  def start_link(_type, _args) do
+  def start_link do
     Agent.start_link(fn -> %{token: nil, expires_in: -1} end, name: :token)
   end
 

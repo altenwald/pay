@@ -1,10 +1,9 @@
 defmodule Paypal.App do
-  import Supervisor.Spec 
+  use Application
 
-  def start(type,args) do
-    children = [
-      worker(Paypal.Authentication, [[type,args], [name: __MODULE__]])
-    ]
-    {:ok, pid} = Supervisor.start_link(children, strategy: :one_for_one)
+  def start(_type, _args) do
+    import Supervisor.Spec
+    children = [worker(Paypal.Authentication, [])]
+    Supervisor.start_link(children,  [strategy: :one_for_one, name: __MODULE__])
   end
 end
