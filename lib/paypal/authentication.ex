@@ -4,7 +4,7 @@ defmodule Paypal.Authentication do
   """
 
   def start_link do
-    Agent.start_link(fn -> %{token: nil, expires_in: -1} end, name: :token)
+    Agent.start_link(fn -> %{token: nil, expires_in: -1, status: nil} end, name: :token)
   end
 
   @doc """
@@ -18,8 +18,8 @@ defmodule Paypal.Authentication do
   end
 
   defp is_expired do
-    %{token: _, expires_in: expires } = Agent.get(:token, &(&1))
-    :os.timestamp |> Timex.Time.to_secs > expires
+    %{token: _, expires_in: expires, status: _ } = Agent.get(:token, &(&1))
+    :os.timestamp |> Timex.Time.to_seconds > expires
   end
 
   defp get_env(key), do: Application.get_env(:pay, :paypal)[key]
@@ -32,22 +32,35 @@ defmodule Paypal.Authentication do
     |> update_token
   end
 
+  defp update_token({type_error, response}) do
+    Agent.update(:token, fn _ -> %{token: nil, expires_in: -1, status: {type_error, response}}  end)
+  end
+
   defp update_token({:ok, access_token, expires_in}) do
-    now = :os.timestamp |> Timex.Time.to_secs
-    Agent.update(:token, fn _ -> %{token: access_token, expires_in: now + expires_in }  end)
+    now = :os.timestamp |> Timex.Time.to_seconds
+    Agent.update(:token, fn _ -> %{token: access_token, expires_in: now + expires_in, status: :ok}  end)
   end
 
   defp parse_token ({:ok, response}) do
     {:ok, response["access_token"], response["expires_in"]}
   end
 
+  defp parse_token(error_response), do: error_response
+
   @doc """
   Auth Headers needed to make a request to paypal.
   """
-  def headers, do: Enum.concat(request_headers, authorization_header)
+  def headers do
+    %{token: access_token, expires_in: _expires_in, status: status} = token
+    case status do
+      :ok ->
+        {:ok, Enum.concat(request_headers, authorization_header(access_token))}
+      error_response ->
+        error_response
+    end
+  end
 
-  defp authorization_header do
-    %{token: access_token, expires_in: _expires_in} = token
+  defp authorization_header(access_token) do
     [{"Authorization", "Bearer " <>  access_token}]
   end
   defp request_headers, do: [{"Accept", "application/json"}, {"Content-Type", "application/json"}]

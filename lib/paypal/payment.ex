@@ -32,9 +32,13 @@ defimpl Payment, for: Paypal.Payment do
 
   defp do_create_payment(payment) do
     string_payment = format_create_payment_request  Poison.encode!(payment)
-    HTTPoison.post(Paypal.Config.url <> "/payments/payment", string_payment,
-      Paypal.Authentication.headers, timeout: :infinity, recv_timeout: :infinity)
-    |> Paypal.Config.parse_response
+    case Paypal.Authentication.headers do
+      {:ok, headers} ->
+        HTTPoison.post(Paypal.Config.url <> "/payments/payment", string_payment,
+        headers, timeout: :infinity, recv_timeout: :infinity)
+        |> Paypal.Config.parse_response
+      error_response -> error_response
+    end
   end
 
   defp format_create_payment_request(payment) do
