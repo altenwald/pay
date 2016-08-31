@@ -14,7 +14,7 @@ defmodule Pay.Mixfile do
   #
   # Type `mix help compile.app` for more information
   def application do
-    [applications: [:logger, :maru, :httpoison, :tzdata]]
+    [applications: [:logger, :maru, :httpoison]]
   end
 
   # Dependencies can be Hex packages:
@@ -29,7 +29,6 @@ defmodule Pay.Mixfile do
   defp deps do
     [{:maru, "~> 0.7"},
     {:httpoison, "~> 0.8"},
-    {:timex, "~> 2.1.5"},
     {:mock, "~> 0.1.1", only: :test},
     {:dogma, "~> 0.0", only: :dev}]
   end

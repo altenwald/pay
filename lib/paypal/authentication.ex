@@ -19,7 +19,7 @@ defmodule Paypal.Authentication do
 
   defp is_expired do
     %{token: _, expires_in: expires } = Agent.get(:token, &(&1))
-    :os.timestamp |> Timex.Time.to_secs > expires
+    DateTime.utc_now() |> DateTime.to_unix > expires
   end
 
   defp get_env(key), do: Application.get_env(:pay, :paypal)[key]
@@ -33,7 +33,7 @@ defmodule Paypal.Authentication do
   end
 
   defp update_token({:ok, access_token, expires_in}) do
-    now = :os.timestamp |> Timex.Time.to_secs
+    now = DateTime.utc_now() |> DateTime.to_unix
     Agent.update(:token, fn _ -> %{token: access_token, expires_in: now + expires_in }  end)
   end
 
