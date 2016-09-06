@@ -29,7 +29,7 @@ defmodule Pay.Mixfile do
   defp deps do
     [{:maru, "~> 0.7"},
     {:httpoison, "~> 0.8"},
-    {:timex, "~> 2.1.5"},
+    {:timex, "~> 3.0"},
     {:mock, "~> 0.1.1", only: :test},
     {:dogma, "~> 0.0", only: :dev}]
   end
