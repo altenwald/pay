@@ -60,6 +60,10 @@ defmodule Paypal.Authentication do
     end
   end
 
+  def headers(token) do
+    {:ok, Enum.concat(request_headers, authorization_header(token))}
+  end
+
   defp authorization_header(access_token) do
     [{"Authorization", "Bearer " <>  access_token}]
   end

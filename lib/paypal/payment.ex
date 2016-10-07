@@ -9,14 +9,13 @@ defmodule Paypal.Payment do
   update: used at the Payment.update protocol.
   """
   @derive [Poison.Encoder]
-  defstruct intent: nil, payer: nil, transactions: nil, id: nil, op: nil, update: nil, redirect_urls: nil
+  defstruct intent: nil, payer: nil, transactions: nil, id: nil, op: nil, update: nil, redirect_urls: nil, access_token: nil
   @type p :: %Paypal.Payment{intent: String.t, payer: any, transactions: list(any), redirect_urls: any,
-                            id: integer, op: String.t, update: list(any)}
+                            id: integer, op: String.t, update: list(any), access_token: any}
 
 end
 
 defimpl Payment, for: Paypal.Payment do
-
   @doc """
     Function to create a payment with Paypal. Receives a Dict with all information that is required by
     the Paypal API.
@@ -31,13 +30,16 @@ defimpl Payment, for: Paypal.Payment do
   end
 
   defp do_create_payment(payment) do
+    payment = Map.delete(payment, :access_token)
     string_payment = format_create_payment_request  Poison.encode!(payment)
     case Paypal.Authentication.headers do
       {:ok, headers} ->
-        HTTPoison.post(Paypal.Config.url <> "/payments/payment", string_payment,
+        {atom, result} = HTTPoison.post(Paypal.Config.url <> "/payments/payment", string_payment,
         headers, timeout: :infinity, recv_timeout: :infinity)
         |> Paypal.Config.parse_response
-      error_response -> error_response
+        {atom, result, headers}
+      error_response ->
+        error_response
     end
   end
 
@@ -51,9 +53,15 @@ defimpl Payment, for: Paypal.Payment do
   It receives a Paypal.Payment struct with id.
   """
   def get_status(payment) do
-    HTTPoison.get(Paypal.Config.url <> "/payments/payment/" <> payment.id, Paypal.Authentication.headers,
-      timeout: :infinity, recv_timeout: :infinity)
-    |> Paypal.Config.parse_response
+    case Paypal.Authentication.headers do
+      {:ok, headers} ->
+        HTTPoison.get(Paypal.Config.url <> "/payments/payment/" <> payment.id, headers,
+          timeout: :infinity, recv_timeout: :infinity)
+          |> Paypal.Config.parse_response
+      error_response ->
+          error_response
+    end
+
   end
 
   @doc """
@@ -69,35 +77,73 @@ defimpl Payment, for: Paypal.Payment do
       Task.async fn -> do_update_payment(payment) end
   end
   def do_update_payment(payment) do
-    HTTPoison.patch(Paypal.Config.url <>  "/payments/payment/" <> payment.id, Poison.encode!(payment.update),
-      Paypal.Authentication.headers, timeout: :infinity, recv_timeout: :infinity)
-      |> Paypal.Config.parse_response
+    case Paypal.Authentication.headers do
+      {:ok, headers} ->
+        HTTPoison.patch(Paypal.Config.url <>  "/payments/payment/" <> payment.id, Poison.encode!(payment.update),
+        headers, timeout: :infinity, recv_timeout: :infinity)
+        |> Paypal.Config.parse_response
+      error_response ->
+        error_response
+    end
   end
   @doc """
   Use this call to get a list of payments in any state (created, approved, failed, etc.). The payments returned are the payments made to the merchant making the call.
   You should pass to this function just a empty Paypal.Payment like %Paypal.Payment{}
   """
   def get_payments(_payment) do
-    HTTPoison.get(Paypal.Config.url <> "/payments/payment/", Paypal.Authentication.headers, timeout: :infinity, recv_timeout: :infinity)
-    |> Paypal.Config.parse_response
+    case  Paypal.Authentication.headers do
+      {:ok, headers} ->
+        HTTPoison.get(Paypal.Config.url <> "/payments/payment/", headers, timeout: :infinity, recv_timeout: :infinity)
+        |> Paypal.Config.parse_response
+      error_response ->
+          error_response
+    end
+
   end
 
+
+
   @doc """
+  Use this call to execute (complete) a PayPal payment that has been approved by the payer.
+  You can optionally update transaction information when executing the payment by passing in one or more transactions.
+  You have to set at least: %Paypal.Payment{id: PAYMENT_ID, payer: %{id: PAYER_ID}}, also you can put the
+  access token  %Paypal.Payment{id: PAYMENT_ID, payer: %{id: PAYER_ID}, access_token: ACCESS_TOKEN}
+
+  """
+  def execute_paypal_payment(payment) do
+    {_, headers} = Paypal.Authentication.headers(payment.access_token)
+    Task.async fn -> do_execute_payment(payment, headers) end
+  end
+
+ @doc """
   Use this call to execute (complete) a PayPal payment that has been approved by the payer.
   You can optionally update transaction information when executing the payment by passing in one or more transactions.
   You have to set at least: %Paypal.Payment{id: PAYMENT_ID, payer: %{id: PAYER_ID}}
 
   """
+
   def execute_payment(payment) do
     Task.async fn -> do_execute_payment(payment) end
   end
 
+
   defp do_execute_payment(payment) do
+    case Paypal.Authentication.headers do
+      {:ok, headers} ->
+        do_execute_payment(payment, headers)
+      error_response ->
+          error_response
+    end
+  end
+
+  defp do_execute_payment(payment, headers) do
     HTTPoison.post(Paypal.Config.url <> "/payments/payment/#{payment.id}/execute",
       Poison.encode!(%{payer_id: payment.payer.id}),
-      Paypal.Authentication.headers, timeout: :infinity, recv_timeout: :infinity)
+      headers, timeout: :infinity, recv_timeout: :infinity)
     |> Paypal.Config.parse_response
   end
+
+
 
   @doc """
   Use this call to refund a completed payment.
