@@ -28,7 +28,7 @@ defmodule Paypal.Authentication do
 
   defp request_token do
     hackney = [basic_auth: {get_env(:client_id), get_env(:secret)}]
-    HTTPoison.post(Paypal.Config.url <> "/oauth2/token?grant_type=authorization_code", "grant_type=client_credentials", basic_headers, [ hackney: hackney ])
+    HTTPoison.post(Paypal.Config.url <> "/oauth2/token", "grant_type=client_credentials", basic_headers, [ hackney: hackney ])
     |> Paypal.Config.parse_response
     |> parse_token
     |> update_token
