@@ -13,8 +13,8 @@ defmodule Paypal.Authentication do
   Function that returns a valid token. If the token has expired, it makes a call to paypal.
   """
   def token do
-    if is_expired do
-      request_token
+    if is_expired() do
+      request_token()
     end
     Agent.get(:token, &(&1))
   end
@@ -28,7 +28,7 @@ defmodule Paypal.Authentication do
 
   defp request_token do
     hackney = [basic_auth: {get_env(:client_id), get_env(:secret)}]
-    HTTPoison.post(Paypal.Config.url <> "/oauth2/token", "grant_type=client_credentials", basic_headers, [ hackney: hackney ])
+    HTTPoison.post(Paypal.Config.url <> "/oauth2/token", "grant_type=client_credentials", basic_headers(), [ hackney: hackney ])
     |> Paypal.Config.parse_response
     |> parse_token
     |> update_token
@@ -46,10 +46,10 @@ defmodule Paypal.Authentication do
   @doc """
   Auth Headers needed to make a request to paypal.
   """
-  def headers, do: Enum.concat(request_headers, authorization_header)
+  def headers, do: Enum.concat(request_headers(), authorization_header())
 
   defp authorization_header do
-    %{token: access_token, expires_in: _expires_in} = token
+    %{token: access_token, expires_in: _expires_in} = token()
     [{"Authorization", "Bearer " <>  access_token}]
   end
   defp request_headers, do: [{"Accept", "application/json"}, {"Content-Type", "application/json"}]

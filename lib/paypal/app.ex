@@ -5,6 +5,6 @@ defmodule Paypal.App do
     children = [
       worker(Paypal.Authentication, [[type,args], [name: __MODULE__]])
     ]
-    {:ok, pid} = Supervisor.start_link(children, strategy: :one_for_one)
+    {:ok, _pid} = Supervisor.start_link(children, strategy: :one_for_one)
   end
 end
