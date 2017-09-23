@@ -9,7 +9,6 @@ defmodule Paypal.Config do
     end
   end
 
-
   def parse_response(response) do
     case response do
       {:ok, %HTTPoison.Response{status_code: 401,  body: body, headers: _headers}} ->
@@ -20,6 +19,5 @@ defmodule Paypal.Config do
       {:error, %HTTPoison.Error{reason: reason}} ->
         {:nok, reason}
     end
-
   end
 end

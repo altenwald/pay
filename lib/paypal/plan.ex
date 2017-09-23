@@ -11,9 +11,9 @@ defimpl Plan, for: Paypal.Plan do
 
   defp do_create(plan) do
     string_plan = Poison.encode!(plan)
-    HTTPoison.post(Paypal.Config.url <> "/payments/billing-plans", string_plan,
-      Paypal.Authentication.headers, timeout: :infinity, recv_timeout: :infinity)
-    |> parse_response()
+    with {:ok, headers} <- Paypal.Authentication.headers(),
+      do: HTTPoison.post(Paypal.Config.url <> "/payments/billing-plans", string_plan, headers, timeout: :infinity, recv_timeout: :infinity)
+        |> parse_response()
   end
 
   def update(plan) do
@@ -21,10 +21,9 @@ defimpl Plan, for: Paypal.Plan do
   end
 
   defp do_update(plan) do
-    IO.inspect Paypal.Authentication.headers
-    HTTPoison.patch(Paypal.Config.url <> "/payments/billing-plans/#{plan.id}",
-      Poison.encode!([%{path: "/", value: %{"state" => "ACTIVE"}, op: "replace"}]),
-      Paypal.Authentication.headers, timeout: :infinity, recv_timeout: :infinity)
+    with {:ok, headers} <- Paypal.Authentication.headers(),
+      do: HTTPoison.patch(Paypal.Config.url <> "/payments/billing-plans/#{plan.id}", Poison.encode!([%{path: "/", value: %{"state" => "ACTIVE"}, op: "replace"}]),
+        headers, timeout: :infinity, recv_timeout: :infinity)
   end
 
   defp parse_response(response) do

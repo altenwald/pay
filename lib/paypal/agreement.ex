@@ -10,9 +10,9 @@ defimpl Agreement, for: [Paypal.Agreement, BitString] do
 
   defp do_create(agreement) do
     string_agreement = Poison.encode!(agreement)
-    HTTPoison.post(Paypal.Config.url <> "/payments/billing-agreements", string_agreement,
-      Paypal.Authentication.headers, timeout: :infinity, recv_timeout: :infinity)
-    |> Paypal.Config.parse_response
+    with {:ok, headers } <- Paypal.Authentication.headers(),
+      do: HTTPoison.post(Paypal.Config.url <> "/payments/billing-agreements", string_agreement, headers, timeout: :infinity, recv_timeout: :infinity)
+          |> Paypal.Config.parse_response
   end
 
   def execute(token) do
@@ -20,8 +20,8 @@ defimpl Agreement, for: [Paypal.Agreement, BitString] do
   end
 
   defp do_execute(token) do
-    HTTPoison.post(Paypal.Config.url <> "/payments/billing-agreements/#{token}/agreement-execute",
-      "{}", Paypal.Authentication.headers, timeout: :infinity, recv_timeout: :infinity)
-    |> Paypal.Config.parse_response
+    with {:ok, headers} <- Paypal.Authentication.headers(),
+      do: HTTPoison.post(Paypal.Config.url <> "/payments/billing-agreements/#{token}/agreement-execute", "{}", headers, timeout: :infinity, recv_timeout: :infinity)
+        |> Paypal.Config.parse_response
   end
 end

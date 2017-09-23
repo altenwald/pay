@@ -1,7 +1,7 @@
 defmodule Paypal.App do
   import Supervisor.Spec 
 
-  def start(type,args) do
+  def start(type, args) do
     children = [
       worker(Paypal.Authentication, [[type,args], [name: __MODULE__]])
     ]
