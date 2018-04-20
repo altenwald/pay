@@ -45,7 +45,7 @@ defimpl Payment, for: Paypal.Payment do
 
   defp do_create_payment(payment) do
     payment = Map.delete(payment, :access_token)
-    string_payment = format_create_payment_request  Poison.encode!(payment)
+    string_payment = Poison.encode!(payment) |> format_create_payment_request()
     with {:ok, headers} <- Paypal.Authentication.headers do
       {atom, result} = HTTPoison.post(Paypal.Config.url <> "/payments/payment", string_payment,
                                       headers, timeout: :infinity, recv_timeout: :infinity)
@@ -69,7 +69,6 @@ defimpl Payment, for: Paypal.Payment do
                     timeout: :infinity, recv_timeout: :infinity)
       |> Paypal.Config.parse_response
     end
-
   end
 
   @doc """
