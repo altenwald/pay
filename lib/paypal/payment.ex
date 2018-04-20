@@ -129,11 +129,15 @@ defimpl Payment, for: Paypal.Payment do
 
   defp do_execute_payment(payment) do
     with {:ok, headers} <- Paypal.Authentication.headers do
-      HTTPoison.post(Paypal.Config.url <> "/payments/payment/#{payment.id}/execute",
-                     Poison.encode!(%{payer_id: payment.payer.id}),
-                     headers, timeout: :infinity, recv_timeout: :infinity)
-      |> Paypal.Config.parse_response
+      do_execute_payment(payment, headers)
     end
+  end
+
+  defp do_execute_payment(payment, headers) do
+    HTTPoison.post(Paypal.Config.url <> "/payments/payment/#{payment.id}/execute",
+                   Poison.encode!(%{payer_id: payment.payer.id}),
+                   headers, timeout: :infinity, recv_timeout: :infinity)
+    |> Paypal.Config.parse_response
   end
 
   @doc """

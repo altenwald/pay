@@ -56,11 +56,9 @@ defmodule Paypal.Authentication do
     Agent.update(:token, fn _ -> %{token: access_token, expires_in: now + expires_in, status: :ok}  end)
   end
 
-  defp parse_token (response) do
+  defp parse_token(response) do
     {:ok, response["access_token"], response["expires_in"]}
   end
-
-  defp parse_token(error_response), do: error_response
 
   @doc """
   Auth Headers needed to make a request to paypal.
