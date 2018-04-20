@@ -9,9 +9,23 @@ defmodule Paypal.Payment do
   update: used at the Payment.update protocol.
   """
   @derive [Poison.Encoder]
-  defstruct intent: nil, payer: nil, transactions: nil, id: nil, op: nil, update: nil, redirect_urls: nil, access_token: nil
-  @type p :: %Paypal.Payment{intent: String.t, payer: any, transactions: list(any), redirect_urls: any,
-                            id: integer, op: String.t, update: list(any), access_token: any}
+
+  defstruct intent: nil,
+            payer: nil,
+            transactions: nil,
+            id: nil,
+            op: nil,
+            update: nil,
+            redirect_urls: nil,
+            access_token: nil
+  @type payment :: %Paypal.Payment{intent: String.t,
+                                   payer: any,
+                                   transactions: list(any),
+                                   redirect_urls: any,
+                                   id: integer,
+                                   op: String.t,
+                                   update: list(any),
+                                   access_token: any}
 
 end
 
@@ -32,14 +46,11 @@ defimpl Payment, for: Paypal.Payment do
   defp do_create_payment(payment) do
     payment = Map.delete(payment, :access_token)
     string_payment = format_create_payment_request  Poison.encode!(payment)
-    case Paypal.Authentication.headers do
-      {:ok, headers} ->
-        {atom, result} = HTTPoison.post(Paypal.Config.url <> "/payments/payment", string_payment,
-        headers, timeout: :infinity, recv_timeout: :infinity)
-        |> Paypal.Config.parse_response
-        {atom, result, headers}
-      error_response ->
-        error_response
+    with {:ok, headers} <- Paypal.Authentication.headers do
+      {atom, result} = HTTPoison.post(Paypal.Config.url <> "/payments/payment", string_payment,
+                                      headers, timeout: :infinity, recv_timeout: :infinity)
+                       |> Paypal.Config.parse_response
+      {atom, result, headers}
     end
   end
 
@@ -53,13 +64,10 @@ defimpl Payment, for: Paypal.Payment do
   It receives a Paypal.Payment struct with id.
   """
   def get_status(payment) do
-    case Paypal.Authentication.headers do
-      {:ok, headers} ->
-        HTTPoison.get(Paypal.Config.url <> "/payments/payment/" <> payment.id, headers,
-          timeout: :infinity, recv_timeout: :infinity)
-          |> Paypal.Config.parse_response
-      error_response ->
-          error_response
+    with {:ok, headers} <- Paypal.Authentication.headers do
+      HTTPoison.get(Paypal.Config.url <> "/payments/payment/" <> payment.id, headers,
+                    timeout: :infinity, recv_timeout: :infinity)
+      |> Paypal.Config.parse_response
     end
 
   end
@@ -76,32 +84,26 @@ defimpl Payment, for: Paypal.Payment do
   def update_payment(payment) do
       Task.async fn -> do_update_payment(payment) end
   end
+
   def do_update_payment(payment) do
-    case Paypal.Authentication.headers do
-      {:ok, headers} ->
-        HTTPoison.patch(Paypal.Config.url <>  "/payments/payment/" <> payment.id, Poison.encode!(payment.update),
-        headers, timeout: :infinity, recv_timeout: :infinity)
-        |> Paypal.Config.parse_response
-      error_response ->
-        error_response
+    with {:ok, headers} <- Paypal.Authentication.headers do
+      HTTPoison.patch(Paypal.Config.url <>  "/payments/payment/" <> payment.id,
+                      Poison.encode!(payment.update), headers, timeout: :infinity,
+                      recv_timeout: :infinity)
+      |> Paypal.Config.parse_response
     end
   end
+
   @doc """
   Use this call to get a list of payments in any state (created, approved, failed, etc.). The payments returned are the payments made to the merchant making the call.
   You should pass to this function just a empty Paypal.Payment like %Paypal.Payment{}
   """
   def get_payments(_payment) do
-    case  Paypal.Authentication.headers do
-      {:ok, headers} ->
-        HTTPoison.get(Paypal.Config.url <> "/payments/payment/", headers, timeout: :infinity, recv_timeout: :infinity)
-        |> Paypal.Config.parse_response
-      error_response ->
-          error_response
+    with {:ok, headers} <- Paypal.Authentication.headers do
+      HTTPoison.get(Paypal.Config.url <> "/payments/payment/", headers, timeout: :infinity, recv_timeout: :infinity)
+      |> Paypal.Config.parse_response
     end
-
   end
-
-
 
   @doc """
   Use this call to execute (complete) a PayPal payment that has been approved by the payer.
@@ -121,29 +123,46 @@ defimpl Payment, for: Paypal.Payment do
   You have to set at least: %Paypal.Payment{id: PAYMENT_ID, payer: %{id: PAYER_ID}}
 
   """
-
   def execute_payment(payment) do
     Task.async fn -> do_execute_payment(payment) end
   end
 
 
   defp do_execute_payment(payment) do
-    case Paypal.Authentication.headers do
-      {:ok, headers} ->
-        do_execute_payment(payment, headers)
-      error_response ->
-          error_response
+    with {:ok, headers} <- Paypal.Authentication.headers do
+      HTTPoison.post(Paypal.Config.url <> "/payments/payment/#{payment.id}/execute",
+                     Poison.encode!(%{payer_id: payment.payer.id}),
+                     headers, timeout: :infinity, recv_timeout: :infinity)
+      |> Paypal.Config.parse_response
     end
   end
 
-  defp do_execute_payment(payment, headers) do
-    HTTPoison.post(Paypal.Config.url <> "/payments/payment/#{payment.id}/execute",
-      Poison.encode!(%{payer_id: payment.payer.id}),
-      headers, timeout: :infinity, recv_timeout: :infinity)
-    |> Paypal.Config.parse_response
+  @doc """
+  Use this to get sale information
+  https://developer.paypal.com/docs/api/payments/#sale_get
+  """
+  def get_details(payment) do
+    Task.async fn -> do_get_details(payment) end
   end
 
+  defp do_get_details(payment) do
+    url = case payment.intent do
+      "sale" -> get_sale_url(payment)
+      _ -> raise "only sale is supported"
+    end
 
+    with {:ok, headers} <- Paypal.Authentication.headers() do
+      HTTPoison.get(url, headers, timeout: :infinity, recv_timeout: :infinity)
+      |> Paypal.Config.parse_response
+    end
+  end
+
+  defp get_sale_url(payment) do
+    payment.transactions
+    |> Enum.at(0) |> Map.get(:related_resources) |> Enum.at(0)
+    |> Map.get(:sale) |> Map.get(:links)
+    |> Enum.find_value(fn link -> link.rel == "self" && link.href end)
+  end
 
   @doc """
   Use this call to refund a completed payment.
@@ -154,14 +173,5 @@ defimpl Payment, for: Paypal.Payment do
   """
   def refund(_payment) do
   end
-
-  # defp do_execute_payment(payment) do
-  #   refund = Enum.first(payment.transactions)
-  #   HTTPoison.post(Paypal.Config.url <> "/payments/sale/#{payment.id}/refund",
-  #     Poison.encode!(%{total: refund.total, currency: refund.currency}),
-  #     Paypal.Authentication.headers, timeout: :infinity, recv_timeout: :infinity)
-  #   |> Paypal.Config.parse_response
-
-  # end
 
 end

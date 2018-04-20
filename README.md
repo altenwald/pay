@@ -27,7 +27,7 @@ payment = Payment.create_payment(%Paypal.Payment{
 approval_url = Enum.find(payment["links"], fn (x) -> x["rel"] == "approval_url" and x["method"] == "REDIRECT" end)
 # redirect user to approval_url["href"]
 # after user has approved the payment, we can execute it on return url call.
-Payment.execute_payment(%Paypal.Payment{id: "PAYMENT_ID_FROM_RETURN_CALL", payer: %{payer_id: "PAYER_ID_FROM_RETURN_CALL"}})
+Payment.execute_payment(%Paypal.Payment{id: "PAYMENT_ID_FROM_RETURN_CALL", payer: %{id: "PAYER_ID_FROM_RETURN_CALL"}})
 ```
 
 then add the `pay` to your `config/config.exs`
