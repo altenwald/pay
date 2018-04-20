@@ -64,7 +64,7 @@ defmodule Paypal.Authentication do
   Auth Headers needed to make a request to paypal.
   """
   def headers do
-    with %{token: access_token, status: :ok} = get_token() do
+    with {:ok, %{token: access_token, status: :ok}} = get_token() do
       {:ok, Enum.concat(request_headers(), authorization_header(access_token))}
     end
   end
