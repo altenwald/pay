@@ -23,10 +23,16 @@ defmodule Paypal.Authentication do
 
   defp is_expired do
     %{expires_in: expires} = Agent.get(:token, &(&1))
-    DateTime.utc_now() |> DateTime.to_unix > expires
+    System.os_time(:seconds) > expires
   end
 
-  defp get_env(key), do: Application.get_env(:pay, :paypal)[key]
+  defp get_env(key) do
+    case Application.get_env(:pay, :paypal)[key] do
+      nil -> raise "Expected #{key} to be set"
+      {:system, var} -> System.get_env(var) || raise "Expected #{var} to be set"
+      value -> value
+    end
+  end
 
   defp request_token do
     hackney = [basic_auth: {get_env(:client_id), get_env(:secret)}]
@@ -46,7 +52,7 @@ defmodule Paypal.Authentication do
   end
 
   defp update_token({:ok, access_token, expires_in}) do
-    now = DateTime.utc_now() |> DateTime.to_unix
+    now = System.os_time(:seconds)
     Agent.update(:token, fn _ -> %{token: access_token, expires_in: now + expires_in, status: :ok}  end)
   end
 
