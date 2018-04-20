@@ -39,8 +39,8 @@ defmodule Paypal.Authentication do
     with {:ok, response} <- HTTPoison.post(Paypal.Config.url <> "/oauth2/token" <>
                                            "?grant_type=client_credentials",
                                            "grant_type=authorization_code",
-                                           basic_headers, [ hackney: hackney ])
-                            |> Paypal.Config.parse_response do
+                                           basic_headers(), [ hackney: hackney ])
+                            |> Paypal.Config.parse_response() do
       response
       |> parse_token()
       |> update_token()
@@ -72,7 +72,7 @@ defmodule Paypal.Authentication do
   end
 
   def headers(token) do
-    {:ok, Enum.concat(request_headers, authorization_header(token))}
+    {:ok, Enum.concat(request_headers(), authorization_header(token))}
   end
 
   defp authorization_header(access_token) do
