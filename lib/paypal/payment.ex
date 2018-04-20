@@ -116,7 +116,7 @@ defimpl Payment, for: Paypal.Payment do
     Task.async fn -> do_execute_payment(payment, headers) end
   end
 
- @doc """
+  @doc """
   Use this call to execute (complete) a PayPal payment that has been approved by the payer.
   You can optionally update transaction information when executing the payment by passing in one or more transactions.
   You have to set at least: %Paypal.Payment{id: PAYMENT_ID, payer: %{id: PAYER_ID}}
@@ -148,17 +148,14 @@ defimpl Payment, for: Paypal.Payment do
     Task.async fn -> do_get_details(payment) end
   end
 
-  defp do_get_details(payment) do
-    url = case payment.intent do
-      "sale" -> get_sale_url(payment)
-      _ -> raise "only sale is supported"
-    end
-
+  defp do_get_details(%{intent: "sale"} = payment) do
+    url = get_sale_url(payment)
     with {:ok, headers} <- Paypal.Authentication.headers() do
       HTTPoison.get(url, headers, timeout: :infinity, recv_timeout: :infinity)
       |> Paypal.Config.parse_response
     end
   end
+  defp do_get_details(_payment), do: raise "only sale is supported"
 
   defp get_sale_url(payment) do
     payment.transactions
