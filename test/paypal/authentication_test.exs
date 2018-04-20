@@ -10,10 +10,13 @@ defmodule Paypal.AuthenticationTest do
         "expires_in": 28800
       }), headers: []}} end] do
       Paypal.App.start([],[])
-      assert %{token: token, expires_in: _} = Paypal.Authentication.token
+      assert {:ok, %{token: token, expires_in: _}} = Paypal.Authentication.get_token()
 
-      assert [{"Accept", "application/json"}, {"Content-Type", "application/json"},
-      {"Authorization", "Bearer " <> token}] == Paypal.Authentication.headers
+      assert {:ok, [
+        {"Accept", "application/json"},
+        {"Content-Type", "application/json"},
+        {"Authorization", "Bearer " <> token}
+      ]} == Paypal.Authentication.headers()
     end
   end
 end

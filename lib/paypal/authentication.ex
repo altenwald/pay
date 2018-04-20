@@ -1,4 +1,6 @@
 defmodule Paypal.Authentication do
+  use Timex
+
   @moduledoc """
   This module is responsible to authenticate the lib with paypal.
   """
@@ -10,15 +12,19 @@ defmodule Paypal.Authentication do
   @doc """
   Function that returns a valid token. If the token has expired, it makes a call to paypal.
   """
-  def token do
-    if is_expired do
-      request_token
+  def get_token do
+    if is_expired() do
+      case request_token() do
+        :ok -> {:ok, Agent.get(:token, &(&1))}
+        _ -> {:error, "Could't request token"}
+      end
+    else
+      {:ok, Agent.get(:token, &(&1))}
     end
-    Agent.get(:token, &(&1))
   end
 
   defp is_expired do
-    %{token: _, expires_in: expires, status: _ } = Agent.get(:token, &(&1))
+    %{expires_in: expires} = Agent.get(:token, &(&1))
     :os.timestamp |> Timex.Time.to_seconds > expires
   end
 
@@ -26,10 +32,15 @@ defmodule Paypal.Authentication do
 
   defp request_token do
     hackney = [basic_auth: {get_env(:client_id), get_env(:secret)}]
-    HTTPoison.post(Paypal.Config.url <> "/oauth2/token?grant_type=client_credentials", "grant_type=authorization_code", basic_headers, [ hackney: hackney ])
-    |> Paypal.Config.parse_response
-    |> parse_token
-    |> update_token
+    with {:ok, response} <- HTTPoison.post(Paypal.Config.url <> "/oauth2/token" <>
+                                           "?grant_type=client_credentials",
+                                           "grant_type=authorization_code",
+                                           basic_headers, [ hackney: hackney ])
+                            |> Paypal.Config.parse_response do
+      response
+      |> parse_token()
+      |> update_token()
+    end
   end
 
   defp update_token({type_error, response}) do
@@ -37,11 +48,11 @@ defmodule Paypal.Authentication do
   end
 
   defp update_token({:ok, access_token, expires_in}) do
-    now = :os.timestamp |> Timex.Time.to_seconds
+    now = :os.timestamp |> Duration.from_erl |> Duration.to_seconds
     Agent.update(:token, fn _ -> %{token: access_token, expires_in: now + expires_in, status: :ok}  end)
   end
 
-  defp parse_token ({:ok, response}) do
+  defp parse_token (response) do
     {:ok, response["access_token"], response["expires_in"]}
   end
 
@@ -51,12 +62,8 @@ defmodule Paypal.Authentication do
   Auth Headers needed to make a request to paypal.
   """
   def headers do
-    %{token: access_token, expires_in: _expires_in, status: status} = token
-    case status do
-      :ok ->
-        {:ok, Enum.concat(request_headers, authorization_header(access_token))}
-      error_response ->
-        error_response
+    with %{token: access_token, status: :ok} = get_token() do
+      {:ok, Enum.concat(request_headers(), authorization_header(access_token))}
     end
   end
 
@@ -67,7 +74,8 @@ defmodule Paypal.Authentication do
   defp authorization_header(access_token) do
     [{"Authorization", "Bearer " <>  access_token}]
   end
-  defp request_headers, do: [{"Accept", "application/json"}, {"Content-Type", "application/json"}]
-  defp basic_headers, do: [{"Accept", "application/json"}, {"Content-Type", "application/x-www-form-urlencoded"}]
+
+  defp request_headers(), do: [{"Accept", "application/json"}, {"Content-Type", "application/json"}]
+  defp basic_headers(), do: [{"Accept", "application/json"}, {"Content-Type", "application/x-www-form-urlencoded"}]
 
 end

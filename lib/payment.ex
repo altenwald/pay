@@ -4,5 +4,6 @@ defprotocol Payment do
   def update_payment(payment)
   def get_payments(payment)
   def execute_payment(payment)
+  def get_details(payment)
   def refund(payment)
 end
